@@ -1,0 +1,28 @@
+# Created by .ignore support plugin (hsz.mobi)
+.gradle
+/build/
+gradle-app.setting
+!gradle-wrapper.jar
+.gradletasknamecache
+*.class
+*.ctxt
+.mtj.tmp/
+*.jar
+*.war
+*.ear
+hs_err_pid*
+.data/
+temp/
+classes/
+deploy/
+javadoc/
+cwallet.sso.lck### JetBrains template
+.idea/
+*.iws
+/out/
+.idea_modules/
+atlassian-ide-plugin.xml
+com_crashlytics_export_strings.xml
+crashlytics.properties
+crashlytics-build.properties
+fabric.properties
