@@ -1,9 +1,8 @@
-package com.guylplatteau.sma.puzzle15.view;
+package me.guyl.mas15puzzle.views;
 
 import javax.swing.*;
 import java.awt.*;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 
 /**
@@ -13,6 +12,10 @@ public class PuzzleForm {
     private JPanel mainPanel;
     private JPanel puzzlePanel;
     private JPanel toolsPanel;
+    private JTextField numberOfCasesInput;
+    private JButton applyButton;
+    private JButton resetButton;
+    private JButton startButton;
 
     public static void main(String[] args) {
         JFrame frame = new JFrame("Puzzle 15");
@@ -34,8 +37,8 @@ public class PuzzleForm {
 
         frame.setContentPane(form.mainPanel);
         frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+        frame.setLocationRelativeTo(null);
         frame.pack();
-
         frame.setVisible(true);
     }
 

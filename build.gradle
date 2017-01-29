@@ -1,4 +1,4 @@
-group 'com.guylplatteau.sma.puzzle15'
+group 'me.guyl.mas15puzzle'
 version '1.0-SNAPSHOT'
 
 buildscript {
@@ -13,7 +13,6 @@ buildscript {
 }
 
 apply plugin: 'java'
-apply plugin: 'kotlin'
 
 sourceCompatibility = 1.5
 
@@ -22,6 +21,5 @@ repositories {
 }
 
 dependencies {
-    compile "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
     testCompile group: 'junit', name: 'junit', version: '4.11'
 }
