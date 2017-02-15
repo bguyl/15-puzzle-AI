@@ -8,6 +8,7 @@ import me.guyl.mas15puzzle.models.worlds.Puzzle;
 import java.awt.Point;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 public class PuzzleAgent extends Agent {
 
@@ -17,7 +18,9 @@ public class PuzzleAgent extends Agent {
     private Point waitingPosition;
     private Point requestedPosition;
     private Agent waitedAgent;
-    private static List<Agent> agents;
+    static int count = 0;
+    static Random rand = new Random();
+    int id;
 
     public PuzzleAgent(Point position, Point destination, Puzzle world) {
         this.position = position;
@@ -26,77 +29,144 @@ public class PuzzleAgent extends Agent {
         this.running = true;
         this.messages = new ArrayList<Message>();
         this.complains = new ArrayList<Message>();
+        this.id = ++count;
     }
 
     @Override
     public void run(){
         while (running){
             messageHandler();
-
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
             if(token){
                 move(getNextPositions());
                 token = false;
+            } else {
+                token = world.requestToken();
             }
         }
     }
 
-    private void move(List<Point> nextPositions){
+    private boolean moveForward(List<Point> positions){
+        boolean succeed = false;
+        List<Point> nextPositions = new ArrayList<Point>(positions);
+
+        while (!nextPositions.isEmpty()) {
+            Point current = nextPositions.remove(rand.nextInt(nextPositions.size()));
+            if (world.requestPosition(this, current)) {
+                position = current;
+                if (!complains.isEmpty()) {
+                    for (Message m : complains) {
+                        Agent emitter = m.getEmitter();
+                        emitter.sendMessage(new Message(this, emitter, Perform.RESPONSE, Action.OK));
+                    }
+                    complains = new ArrayList<Message>();
+                }
+                succeed = true;
+                break;
+            }
+        }
+
+        return succeed;
+    }
+
+    private void sendOK(){
+        for(Message m : complains){
+            Agent emitter = m.getEmitter();
+            emitter.sendMessage(new Message(this, emitter, Perform.RESPONSE, Action.OK));
+        }
+        complains = new ArrayList<Message>();
+    }
+
+    private void sendFree(){
+
+    }
+
+    private boolean avoidance(){
+        boolean succeed = false;
+        for(int i = -1; i <= 1; i += 2){
+            Point xi = new Point(position.x + i, position.y), yi = new Point(position.x, position.y + i);
+            if(world.requestPosition(this, xi)){
+                position = xi;
+                sendOK();
+                succeed = true;
+                break;
+            }
+            else if(world.requestPosition(this, yi)){
+                position = yi;
+                sendOK();
+                succeed = true;
+                break;
+            }
+        }
+        return succeed;
+    }
+
+    private void askForHelp(List<Point> nextPositions){
+        Point p = nextPositions.get(rand.nextInt(nextPositions.size()));
+        Agent neighbor = world.getAgentAtPosition(p);
+        neighbor.sendMessage(new Message(this, neighbor, Perform.REQUEST, Action.FREE));
+        waitingPosition = p;
+    }
+
+    protected void move(List<Point> nextPositions){
+        ArrayList<Point> moves = new ArrayList<Point>();
+        for (int i = -1; i <= 1; i += 2) {
+            Point xi = new Point(position.x + i, position.y), yi = new Point(position.x, position.y + i);
+            moves.add(xi);
+            moves.add(yi);
+        }
+
         if(waitingPosition != null){
-            if(world.requestPosition(this, waitingPosition))
+            if(world.requestPosition(this, waitingPosition)){
+                position = waitingPosition;
                 return;
+            }
             waitingPosition = null;
+        }
+
+        if(complains.isEmpty() && destination.equals(position)){
+            return;
         }
 
         // If we can, we pick a chosen position
         if(!nextPositions.isEmpty()){
-            int i = 0;
-            while (!world.requestPosition(this, nextPositions.get(i)))
-                i++;
-            if(!complains.isEmpty()){
-                for(Message m : complains){
-                    Agent emitter = m.getEmitter();
-                    emitter.sendMessage(new Message(this, emitter, Perform.RESPONSE, Action.OK));
-                }
-            }
-            complains = new ArrayList<Message>();
+            if(!moveForward(nextPositions))
+                askForHelp(nextPositions);
             return;
         }
 
-        // If not, we inform the other that we can't perform their requests
-        if (!complains.isEmpty()){
-            for(Message m : complains){
-                Agent emitter = m.getEmitter();
-                emitter.sendMessage(new Message(this, emitter, Perform.RESPONSE, Action.KO));
+        ArrayList<Point> neighs = new ArrayList<Point>();
+        // If we at the destination, we try to move
+        if(!complains.isEmpty()){
+            if(!avoidance()){
+                for(Point p : moves){
+                    Agent a = world.getAgentAtPosition(p);
+                    if(a != null){
+                        neighs.add(p);
+                    }
+                }
+                askForHelp(neighs);
             }
-            complains = new ArrayList<Message>();
+            return;
         }
 
-
-        // We try to contact someone else
-        int minDist = Puzzle.manhattanDistance(position, destination);
-        List<Point> potentialPoint = new ArrayList<Point>();
-
-        for(int i = -1; i <= 1; i += 2){
-            Point xi = new Point(position.x + i, position.y), yi = new Point(position.x, position.y + i);
-            Agent receiver = null;
-            if(Puzzle.manhattanDistance(xi, destination) <= minDist) {
-                receiver = world.getAgentAtPosition(xi);
-                if(receiver != null) {
-                    receiver.sendMessage(new Message(this, receiver, Perform.REQUEST, Action.FREE));
-                    requestedPosition = xi;
-                    waitedAgent = receiver;
-                    break;
+        //Try a random move
+        if(!destination.equals(position)) {
+            Point current = new Point();
+            while (!moves.isEmpty()) {
+                current = moves.remove(rand.nextInt(moves.size()));
+                if (world.requestPosition(this, current)) {
+                    position = current;
+                    return;
                 }
             }
-            if(Puzzle.manhattanDistance(yi, destination) <= minDist){
-                receiver = world.getAgentAtPosition(yi);
-                if(receiver != null) {
-                    receiver.sendMessage(new Message(this, receiver, Perform.REQUEST, Action.FREE));
-                    requestedPosition = yi;
-                    waitedAgent = receiver;
-                    break;
-                }
-            }
+            List<Point> lp = new ArrayList<Point>();
+            lp.add(current);
+            askForHelp(lp);
         }
     }
 
@@ -117,14 +187,17 @@ public class PuzzleAgent extends Agent {
                 potentialPoint.remove(i);
             }
         }
-        //WARNING - Hypothesis: Manhattan distance never give and out of bound position. This is false
+        //TODO: WARNING - Hypothesis: Manhattan distance never give an out of bound position. This is false
         return potentialPoint;
     }
 
     private void messageHandler(){
         for(int i = 0; i < messages.size(); i++){
+            while (messagesAreModified) {}
+            messagesAreModified = true;
             Message message = messages.remove(i);
-            if(message.getReceiver() != this || message.getEmitter() == this){
+            messagesAreModified = false;
+            if(message == null || message.getReceiver() != this || message.getEmitter() == this){
                 continue;
             }
             switch (message.getPerform()){
@@ -149,6 +222,7 @@ public class PuzzleAgent extends Agent {
 
     private void onFree(Message message){
         complains.add(message);
+        System.out.println("Free received !");
     }
 
     private void onOK(Message message){
@@ -164,4 +238,8 @@ public class PuzzleAgent extends Agent {
         requestedPosition = null;
     }
 
+    public void interruption() {
+        token = false;
+        running = false;
+    }
 }
